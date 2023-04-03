@@ -50,6 +50,11 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
     title = 'קבוצה - ביתית' if home_game else 'קבוצה אורחת'
     bench = 'home Bench' if home_game else 'guest Bench'
 
+    # get max time recorded
+    max_time = 0
+    for row in soup.find_all('div', {'class': 'node number'}):
+        max_time = int(row.find('span', {'class': ''}).text)
+
     # save not played players
     not_played = set()
     for row in soup.find_all('div', {'class': bench}):
@@ -75,9 +80,9 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
                 first_yellow_card_minute = re.findall(r'\d+', row.find('span', {'class': 'yellow'}).text)[0]
             if row.find('span', {'class': 'yellow2'}):
                 second_yellow_card_minute = re.findall(r'\d+', row.find('span', {'class': 'yellow2'}).text)[1]
-            time_on_pitch = 90
+            time_on_pitch = max_time
             if row.find('span', {'class': 'change-up'}):
-                time_on_pitch = 90 - int(re.findall(r'\d+', row.find('span', {'class': 'change-up'}).text)[0])
+                time_on_pitch = max_time - int(re.findall(r'\d+', row.find('span', {'class': 'change-up'}).text)[0])
             elif row.find('span', {'class': 'change-down'}):
                 time_on_pitch = re.findall(r'\d+', row.find('span', {'class': 'change-down'}).text)[0]
 
