@@ -3,36 +3,40 @@ import requests
 import csv
 import re
 import config
+import typing
 
 
-def parse_season(season_id: int):
-    url = f"https://www.football.org.il/team-details/team-games/?team_id=5981&season_id={season_id}"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
-
+def parse_seasons(seasons_id: typing.List[int]):
     with open('data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
+        # write columns titles
         writer = csv.writer(csv_file)
         writer.writerow(['date', 'group_home', 'group_away', 'match_stadium', 'match_hour', 'result'] +
                         list(config.PLAYERS.values()))
-        for row_match in soup.find_all('div', {'class': 'table_row_group'}):
-            # parse each line of match details
-            for row in soup.find_all('a', {'class': 'table_row'}):
-                link_id = row['href'].split('game_id=')[1]
-                date = row.find_all('div', {'class': 'table_col'})[0].text.split('תאריך')[1]
-                groups = row.find_all('div', {'class': 'table_col'})[1].text.split('משחק')[1].split(' - ')
-                group_home = groups[0]
-                group_away = groups[1]
-                match_location = row.find_all('div', {'class': 'table_col'})[2].text.split('אצטדיון')[1]
-                match_hour = row.find_all('div', {'class': 'table_col'})[3].text.split('שעה')[1]
-                result = row.find_all('div', {'class': 'table_col'})[4].text.split('תוצאה')[1]
-                if result == 'טרם נקבעה':
-                    continue
-                result = result.replace("-", "--")
-                # write
-                print(result)
-                lst = parse_game(season_id=season_id, game_id=link_id,
-                                 home_game=True if group_home == config.TEAM_NAME else False)
-                writer.writerow([date, group_home, group_away, match_location, match_hour, result] + lst)
+
+        # write data for each season
+        for season_id in seasons_id:
+            url = f"https://www.football.org.il/team-details/team-games/?team_id=5981&season_id={season_id}"
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            for row_match in soup.find_all('div', {'class': 'table_row_group'}):
+                # parse each line of match details
+                for row in soup.find_all('a', {'class': 'table_row'}):
+                    link_id = row['href'].split('game_id=')[1]
+                    date = row.find_all('div', {'class': 'table_col'})[0].text.split('תאריך')[1]
+                    groups = row.find_all('div', {'class': 'table_col'})[1].text.split('משחק')[1].split(' - ')
+                    group_home = groups[0]
+                    group_away = groups[1]
+                    match_location = row.find_all('div', {'class': 'table_col'})[2].text.split('אצטדיון')[1]
+                    match_hour = row.find_all('div', {'class': 'table_col'})[3].text.split('שעה')[1]
+                    result = row.find_all('div', {'class': 'table_col'})[4].text.split('תוצאה')[1]
+                    if result == 'טרם נקבעה':
+                        continue
+                    result = result.replace("-", "--")
+                    # write
+                    lst = parse_game(season_id=season_id, game_id=link_id,
+                                     home_game=True if group_home == config.TEAM_NAME else False)
+                    writer.writerow([date, group_home, group_away, match_location, match_hour, result] + lst)
 
 
 def parse_game(season_id: int, game_id: int, home_game: bool):
@@ -84,4 +88,4 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
 
 
 if __name__ == "__main__":
-    parse_season(season_id=23)
+    parse_seasons(seasons_id=[23, 24])
