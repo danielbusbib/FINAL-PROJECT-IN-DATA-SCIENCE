@@ -146,7 +146,7 @@ def parse_seasons(seasons_id: typing.List[int]):
                                               home_game=True if group_home == config.TEAM_NAME else False)
                     writer.writerow(
                         [date, coaches[0], group_home, bets[0], bets[1], bets[2], group_away, coaches[1],
-                         match_location, match_hour, result] + lst)
+                         match_location, match_hour, result[::-1]] + lst)
 
 
 if __name__ == "__main__":
