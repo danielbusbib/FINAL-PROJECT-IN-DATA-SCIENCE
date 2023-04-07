@@ -6,6 +6,7 @@ import re
 import typing
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+import pandas as pd
 
 # globals
 import config
@@ -111,6 +112,7 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
 
 def parse_seasons(seasons_id: typing.List[int]):
     with open('data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
+        df_bets = pd.read_csv("betsData.csv")
         # write columns titles
         writer = csv.writer(csv_file)
         writer.writerow(
@@ -139,14 +141,30 @@ def parse_seasons(seasons_id: typing.List[int]):
                         continue
                     dfd = date.split('/')
                     print(dfd)
-                    bets = get_bets(dfd[0], dfd[1], dfd[2])
+                    if date in df_bets['date'].values:
+                        bets = df_bets[df_bets['date'] == date]['bet_team_home'].values[0], \
+                               df_bets[df_bets['date'] == date]['bet_draw'].values[0], \
+                               df_bets[df_bets['date'] == date]['bet_team_away'].values[0]
+                    else:
+                        bets = get_bets(dfd[0], dfd[1], dfd[2])
                     result = result.replace("-", "--")
+                    # print(group_home, config.TEAMS[group_home])
+                    # print(group_away, config.TEAMS[group_away])
                     # write
                     coaches, lst = parse_game(season_id=season_id, game_id=link_id,
                                               home_game=True if group_home == config.TEAM_NAME else False)
+                    # write match final row
                     writer.writerow(
-                        [date, coaches[0], group_home, bets[0], bets[1], bets[2], group_away, coaches[1],
-                         match_location, match_hour, result[::-1]] + lst)
+                        [date,
+                         config.COACHES[coaches[0]],
+                         config.TEAMS[group_home],
+                         bets[0], bets[1], bets[2],
+                         config.TEAMS[group_away],
+                         config.COACHES[coaches[1]],
+                         config.STADIUMS[match_location],
+                         match_hour,
+                         result[::-1]]
+                        + lst)
 
 
 if __name__ == "__main__":
