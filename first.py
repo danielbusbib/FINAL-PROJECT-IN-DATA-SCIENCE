@@ -110,6 +110,14 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
     return coaches, lst_time
 
 
+def write_bets(date, bets):
+    """append to betsDta.csv the date with the bets from the internet"""
+    with open('betsData.csv', mode='a', encoding='utf-8', newline='') as csv_file:
+        # write columns titles
+        writer = csv.writer(csv_file)
+        writer.writerow([date, bets[0], bets[1], bets[2]])
+
+
 def parse_seasons(seasons_id: typing.List[int]):
     with open('data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
         df_bets = pd.read_csv("betsData.csv")
@@ -147,9 +155,10 @@ def parse_seasons(seasons_id: typing.List[int]):
                                df_bets[df_bets['date'] == date]['bet_team_away'].values[0]
                     else:
                         bets = get_bets(dfd[0], dfd[1], dfd[2])
+                        write_bets(date, bets)
+
                     result = result.replace("-", "--")
-                    # print(group_home, config.TEAMS[group_home])
-                    # print(group_away, config.TEAMS[group_away])
+
                     # write
                     coaches, lst = parse_game(season_id=season_id, game_id=link_id,
                                               home_game=True if group_home == config.TEAM_NAME else False)
