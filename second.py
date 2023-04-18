@@ -37,8 +37,24 @@ def transformation_matrix(date1, date2):
     return normalized_df
 
 
-print(transformation_matrix('8/27/2022', '9/3/2022'))
+# print(transformation_matrix('8/27/2022', '9/3/2022'))
 
 
-def filter_games(result_label, bound_bet_1, bound_bet_2):
-    pass
+def func(x, y, result_label):
+    # we take rows with label = label
+    df = pd.read_csv('data.csv')
+    selected_rows = df.loc[df['result_label'] == result_label]
+    lst_date_match_label = []
+    for index, row in selected_rows.iterrows():
+        if row['team_away'] == "Hapoel Jerusalem":
+            bet = row["bet_team_away"]
+            if x <= bet <= y:
+                lst_date_match_label.append(row["date"])
+        elif row['team_home'] == "Hapoel Jerusalem":
+            bet = row["bet_team_home"]
+            if x <= bet <= y:
+                lst_date_match_label.append(row["date"])
+    return lst_date_match_label
+
+
+print(func(0, 3, 1))
