@@ -125,7 +125,7 @@ def parse_seasons(seasons_id: typing.List[int]):
         writer = csv.writer(csv_file)
         writer.writerow(
             ['date', 'coach_team_home', 'team_home', 'bet_team_home', 'bet_draw', 'bet_team_away', 'team_away',
-             'coach_team_away', 'match_stadium', 'match_hour', 'result'] +
+             'coach_team_away', 'match_stadium', 'match_hour', 'result', 'result_label'] +
             list(config.PLAYERS.values()))
 
         # write data for each season
@@ -145,8 +145,25 @@ def parse_seasons(seasons_id: typing.List[int]):
                     match_location = row.find_all('div', {'class': 'table_col'})[2].text.split('אצטדיון')[1]
                     match_hour = row.find_all('div', {'class': 'table_col'})[3].text.split('שעה')[1]
                     result = row.find_all('div', {'class': 'table_col'})[4].text.split('תוצאה')[1]
+
                     if result == 'טרם נקבעה':
                         continue
+
+                    result = result[::-1]
+
+                    if result[0] == result[2]:
+                        result_label = 0
+                    elif group_home == config.TEAM_NAME:
+                        if result[0] > result[2]:
+                            result_label = 1
+                        else:
+                            result_label = -1
+
+                    elif result[0] < result[2]:
+                        result_label = 1
+                    else:
+                        result_label = -1
+
                     dfd = date.split('/')
                     print(dfd)
                     if date in df_bets['date'].values:
@@ -172,7 +189,8 @@ def parse_seasons(seasons_id: typing.List[int]):
                          config.COACHES[coaches[1]],
                          config.STADIUMS[match_location],
                          match_hour,
-                         result[::-1]]
+                         result,
+                         result_label]
                         + lst)
 
 
