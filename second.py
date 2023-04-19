@@ -55,6 +55,3 @@ def func(x, y, result_label):
             if x <= bet <= y:
                 lst_date_match_label.append(row["date"])
     return lst_date_match_label
-
-
-print(func(0, 3, 1))

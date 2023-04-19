@@ -1,4 +1,5 @@
 # imports
+from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 import csv
@@ -194,5 +195,63 @@ def parse_seasons(seasons_id: typing.List[int]):
                         + lst)
 
 
+def write_rpe():
+    lst = list(config.PLAYERS.values())
+    vals = list()
+    for name in lst:
+        vals.append(name + '_hardness_rating')
+        vals.append(name + '_overall_team_rating')
+        vals.append(name + '_individual_rating')
+
+    with open('RPE_data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(['date'] + vals)
+
+        # RPE OF 21_22
+        df = pd.read_csv("RPE_MATCH_21_22.csv")
+        dict_res = dict()
+        dates = [d.split(' ')[0] for d in df['Timestamp'].values]
+        for date in dates:
+            df1 = df.loc[df['Timestamp'].str.contains(str(date), case=False)].fillna(0)
+            d = datetime.strptime(date, "%m/%d/%Y").strftime("%d/%m/%Y")
+            cur_l = [-1] * len(vals)
+            if d in dict_res:
+                continue
+            for index, row in df1.iterrows():
+                name = row["שם מלא - Full Name"].split('.')[1].replace(' ', '_').lower()
+                if name[0] == '_':
+                    name = name[1:]
+
+                cur_l[3 * lst.index(name)] = int(row['כמה קשה היה המשחק ?   How hard was the  match'])
+                cur_l[3 * lst.index(name) + 1] = int(row["ציון קבוצתי למשחק  -  Overall Team's rating"])
+                cur_l[3 * lst.index(name) + 2] = int(row["ציון אישי למשחק  -  Individual Rating"])
+            dict_res[d] = cur_l.copy()
+            writer.writerow([d] + cur_l.copy())
+
+        # RPE OF 22_23
+        df = pd.read_csv("RPE_MATCH_22_23.csv")
+        dict_res = dict()
+        dates = [d.split(' ')[0] for d in df['Timestamp'].values]
+        for date in dates:
+            df1 = df.loc[df['Timestamp'].str.contains(str(date), case=False)].fillna(0)
+            d = datetime.strptime(date, "%m/%d/%Y").strftime("%d/%m/%Y")
+            cur_l = [-1] * len(vals)
+            if d in dict_res:
+                continue
+            for index, row in df1.iterrows():
+                name = row["שם מלא - Full Name"].split('.')[1].replace(' ', '_').lower()
+                if name[0] == '_':
+                    name = name[1:]
+
+                cur_l[3 * lst.index(name)] = int(row[
+                                                     "כמה קשה היה האימון  ?   How hard was the training / Quelle a été"
+                                                     " la difficulté de l'entraînement"])
+                cur_l[3 * lst.index(name) + 1] = int(row["Team's rating"])
+                cur_l[3 * lst.index(name) + 2] = int(row["Individual rating"])
+            dict_res[d] = cur_l.copy()
+            writer.writerow([d] + cur_l.copy())
+
+
 if __name__ == "__main__":
     parse_seasons(seasons_id=[23, 24])
+    # write_rpe()
