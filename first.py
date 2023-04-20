@@ -203,6 +203,8 @@ def write_rpe():
         vals.append(name + '_overall_team_rating')
         vals.append(name + '_individual_rating')
 
+    date_convert = lambda val, a, b: datetime.strptime(val, a).strftime(b)
+
     with open('RPE_data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(['date'] + vals)
@@ -211,12 +213,31 @@ def write_rpe():
         df = pd.read_csv("RPE_MATCH_21_22.csv")
         dict_res = dict()
         dates = [d.split(' ')[0] for d in df['Timestamp'].values]
+        df_time = pd.to_datetime(dates)
+        cnvr_dates = dict()
+        for i in range(len(df_time) - 1):
+            if int((df_time[i + 1] - df_time[i]).days) == 1:
+                cnvr_dates[date_convert(dates[i], "%m/%d/%Y", "%m/%d/%Y")] = date_convert(dates[i + 1], "%m/%d/%Y",
+                                                                                          "%m/%d/%Y")
         for date in dates:
             df1 = df.loc[df['Timestamp'].str.contains(str(date), case=False)].fillna(0)
-            d = datetime.strptime(date, "%m/%d/%Y").strftime("%d/%m/%Y")
+            d = date_convert(date, "%m/%d/%Y", "%d/%m/%Y")
+
             cur_l = [-1] * len(vals)
             if d in dict_res:
                 continue
+            date = date_convert(date, "%m/%d/%Y", "%m/%d/%Y")
+            if date in cnvr_dates.values():
+                continue
+
+            if date in cnvr_dates:
+                df1 = pd.concat(
+                    [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date]), case=False)].fillna(0)], axis=0)
+                df1 = pd.concat(
+                    [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date])[:5].replace('0', '') +
+                                                              str(cnvr_dates[date])[5:], case=False)].fillna(0)],
+                    axis=0)
+
             for index, row in df1.iterrows():
                 name = row["שם מלא - Full Name"].split('.')[1].replace(' ', '_').lower()
                 if name[0] == '_':
@@ -232,12 +253,34 @@ def write_rpe():
         df = pd.read_csv("RPE_MATCH_22_23.csv")
         dict_res = dict()
         dates = [d.split(' ')[0] for d in df['Timestamp'].values]
+        df_time = pd.to_datetime(dates)
+        cnvr_dates = dict()
+        for i in range(len(df_time) - 1):
+            if int((df_time[i + 1] - df_time[i]).days) == 1:
+                cnvr_dates[date_convert(dates[i], "%m/%d/%Y", "%m/%d/%Y")] = date_convert(dates[i + 1], "%m/%d/%Y",
+                                                                                          "%m/%d/%Y")
         for date in dates:
             df1 = df.loc[df['Timestamp'].str.contains(str(date), case=False)].fillna(0)
-            d = datetime.strptime(date, "%m/%d/%Y").strftime("%d/%m/%Y")
+            d = date_convert(date, "%m/%d/%Y", "%d/%m/%Y")
+
             cur_l = [-1] * len(vals)
             if d in dict_res:
                 continue
+            date = date_convert(date, "%m/%d/%Y", "%m/%d/%Y")
+
+            if date in cnvr_dates.values():
+                continue
+
+            if date in cnvr_dates:
+                df1 = pd.concat(
+                    [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date]), case=False)].fillna(0)], axis=0)
+                df1 = pd.concat(
+                    [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date])[0].replace('0', '') +
+                                                                str(cnvr_dates[date]) [1:3]+
+                                                              str(cnvr_dates[date])[3].replace('0', '') +
+                                                              str(cnvr_dates[date])[4:], case=False)].fillna(0)],
+                    axis=0)
+
             for index, row in df1.iterrows():
                 name = row["שם מלא - Full Name"].split('.')[1].replace(' ', '_').lower()
                 if name[0] == '_':
@@ -253,5 +296,5 @@ def write_rpe():
 
 
 if __name__ == "__main__":
-    parse_seasons(seasons_id=[23, 24])
-    # write_rpe()
+    # parse_seasons(seasons_id=[23, 24])
+    write_rpe()
