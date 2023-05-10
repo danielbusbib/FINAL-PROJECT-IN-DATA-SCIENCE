@@ -1,57 +1,160 @@
 import numpy as np
 import pandas as pd
-
+from scipy.stats import multinomial
+from scipy.stats import chi2
 
 # Transformation matrix
-def transformation_matrix(date1, date2):
-    df = pd.read_csv("RPE_MATCH_22_23.csv")
-    # df by games
-    df1 = df.loc[df['Timestamp'].str.contains(str(date1), case=False)]
-    df2 = df.loc[df['Timestamp'].str.contains(str(date2), case=False)]
-    mat = np.zeros((11, 11)).astype(int)
-    dict1 = dict()
-    # first pass over game 1
-    for index, row in df1.iterrows():
-        dict1[row["שם מלא - Full Name"]] = row['Individual rating']
-    # second pass over game 2
-    for index, row in df2.iterrows():
-        if row["שם מלא - Full Name"] in dict1:
-            a = dict1[row["שם מלא - Full Name"]]
-            b = row['Individual rating']
-            mat[a][b] += 1
-            dict1.pop(row["שם מלא - Full Name"])
-        else:
-            a = 10
-            b = row['Individual rating']
-            mat[a][b] += 1
-
-    for name, rating in dict1.items():
-        a = rating
-        b = 10
-        mat[a][b] += 1
-
-    transformation_matrix_df = pd.DataFrame(mat,
-                                            index=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 'unfilled']
-                                            , columns=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 'unfilled'])
-    normalized_df = transformation_matrix_df.div(transformation_matrix_df.sum(axis=1), axis=0).fillna(0)
-    return normalized_df
+import config
 
 
-# print(transformation_matrix('8/27/2022', '9/3/2022'))
+def transformation_matrix(data, k, name_players=None):
+    """
+    data -> data frame of games
+    k -> min minutes played filter
+    name_players -> list of name players
+    """
+    df = pd.read_csv("RPE_data.csv")
+    if name_players is None:
+        name_players = list(config.PLAYERS.values())
+
+    # data = pd.read_csv("data.csv")
+    mat = np.zeros((13, 13)).astype(int)
+    cols = [f'{i}' for i in range(11)] + ['X', 'Y']  # Y -> NOT PLAYED UNDER K MIN
+    players_dict = {i: ['Y', 'Y'] for i in name_players}
+
+    # iterate over each pair of game
+    for index_game in range(data.shape[0] - 1):
+        # if index_game < 20:
+        #     continue
+
+        # df by games
+        df_game1 = data.iloc[index_game]
+        df_game2 = data.iloc[index_game + 1]
+
+        df_rpe1 = df.loc[df['date'] == df_game1['date']]
+        df_rpe2 = df.loc[df['date'] == df_game2['date']]
+
+        for player in name_players:
+            # notes game 1
+            if not df_rpe1.empty:
+                time = df_game1[player]
+                if 'yy' in str(time):
+                    time = time[:time.find('yy')]
+
+                elif 'y' in str(time):
+                    time = time[:time.find('y')]
+
+                if int(time) >= k:
+                    note = df_rpe1[player + '_individual_rating'].values[0]
+                    if note == -1:
+                        players_dict[player][0] = 'X'
+                    else:
+                        players_dict[player][0] = note
+
+            # notes game 2
+            if df_rpe2.empty:
+                break
+            time = df_game2[player]
+            if 'yy' in str(time):
+                time = time[:time.find('yy')]
+
+            elif 'y' in str(time):
+                time = time[:time.find('y')]
+
+            if int(time) >= k:
+                note = df_rpe2[player + '_individual_rating'].values[0]
+                if note == -1:
+                    players_dict[player][1] = 'X'
+                else:
+                    players_dict[player][1] = note
+        # add to transformation matrix
+        for val in players_dict.values():
+            mat[cols.index(str(val[0]))][cols.index(str(val[1]))] += 1
+
+    transformation_matrix_df = pd.DataFrame(mat, index=cols, columns=cols)
+
+    # normalize
+    # transformation_matrix_df = transformation_matrix_df.div(transformation_matrix_df.sum(axis=1), axis=0).fillna(0)
+
+    # save to csv
+    transformation_matrix_df.to_csv('transformation_matrix_examples/transformation_matrix_all_games.csv',
+                                    index=cols, encoding='utf-8')
+    return transformation_matrix_df
 
 
-def func(x, y, result_label):
-    # we take rows with label = label
+def filters(x=0, y=100, result_label=None, players=None, date=None):
     df = pd.read_csv('data.csv')
-    selected_rows = df.loc[df['result_label'] == result_label]
-    lst_date_match_label = []
-    for index, row in selected_rows.iterrows():
-        if row['team_away'] == "Hapoel Jerusalem":
-            bet = row["bet_team_away"]
-            if x <= bet <= y:
-                lst_date_match_label.append(row["date"])
-        elif row['team_home'] == "Hapoel Jerusalem":
-            bet = row["bet_team_home"]
-            if x <= bet <= y:
-                lst_date_match_label.append(row["date"])
-    return lst_date_match_label
+    # players
+    if players is not None:
+        cols_to_drop_players = df.columns[df.columns.get_loc('adeley_adebayo'):]
+        df = df.drop(columns=[col for col in cols_to_drop_players if col not in players])
+
+    # result
+    if result_label is not None:
+        df.drop(df[df['result_label'] != result_label].index, inplace=True)
+
+    # bets
+    df.drop(df[(df['bet_team_home'] > y) & (df['bet_team_home'] < x) & (df['team_home'] == "Hapoel Jerusalem")].index,
+            inplace=True)
+    df.drop(df[(df['bet_team_away'] > y) & (df['bet_team_away'] < x) & (df['team_away'] == "Hapoel Jerusalem")].index,
+            inplace=True)
+
+    # dates
+    if date is not None:
+        df['date'] = pd.to_datetime(df['date'], dayfirst=True)
+        df.sort_values(by='date')
+        df = df[(df['date'] >= pd.to_datetime(date[0], dayfirst=True)) &
+                (df['date'] <= pd.to_datetime(date[1], dayfirst=True))]
+    return df
+
+
+def likelihood_test(vector1, vector2):
+    # Compute the total number of observations
+    n = sum(vector1)
+
+    # Perform the multinomial test
+    p_value = multinomial.pmf([vector2], n=n, p=[vector1 / n])
+
+    # Print the p-value
+    print("p-value:", p_value)
+
+
+def likelihood_ratio_multinomial(observed1, observed2):
+    """
+    Perform a likelihood ratio multinomial test on two vectors of different sums.
+
+    Arguments:
+    observed1 -- observed frequencies in vector 1 (numpy array or list)
+    observed2 -- observed frequencies in vector 2 (numpy array or list)
+
+    Returns:
+    stat -- test statistic (chi-square value)
+    p_value -- p-value associated with the test statistic
+    """
+    # Calculate the sums of the observed frequencies
+    sum1 = np.sum(observed1)
+    sum2 = np.sum(observed2)
+    observed1 = observed1 + 1e-10
+    # Calculate the expected frequencies assuming the null hypothesis of equal probabilities
+    expected = (sum1 * observed1 + sum2 * observed2) / (sum1 + sum2)
+
+    # Calculate the test statistic (likelihood ratio)
+    stat = 2 * np.sum(observed1 * np.log(observed1 / expected))
+
+    # Calculate the degrees of freedom
+    df = len(observed1) - 1
+
+    # Calculate the p-value associated with the test statistic
+    p_value = 1 - chi2.cdf(stat, df)
+
+    return stat, p_value
+
+
+mat = transformation_matrix(filters(), k=10)
+
+stat, p_value = likelihood_ratio_multinomial(mat.iloc[6].values, mat.iloc[7].values)
+print(f"Test statistic: {stat}")
+print(f"P-value: {p_value}")
+# print(transformation_matrix(filters(players=list(config.PLAYERS.values())[:10]), k=20,
+#                             name_players=list(config.PLAYERS.values())[:10]))
+# date=['04/03/2023', '18/04/2023']
