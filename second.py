@@ -7,7 +7,7 @@ from scipy.stats import chi2
 import config
 
 
-def transformation_matrix(data, k, name_players=None):
+def transformation_matrix(data, k, name_players=None, name_csv=""):
     """
     data -> data frame of games
     k -> min minutes played filter
@@ -20,19 +20,17 @@ def transformation_matrix(data, k, name_players=None):
     # data = pd.read_csv("data.csv")
     mat = np.zeros((13, 13)).astype(int)
     cols = [f'{i}' for i in range(11)] + ['X', 'Y']  # Y -> NOT PLAYED UNDER K MIN
-    players_dict = {i: ['Y', 'Y'] for i in name_players}
 
     # iterate over each pair of game
     for index_game in range(data.shape[0] - 1):
-        # if index_game < 20:
-        #     continue
-
         # df by games
         df_game1 = data.iloc[index_game]
         df_game2 = data.iloc[index_game + 1]
 
-        df_rpe1 = df.loc[df['date'] == df_game1['date']]
-        df_rpe2 = df.loc[df['date'] == df_game2['date']]
+        df_rpe1 = df.loc[df['date'].str.contains(str(df_game1['date']))]
+        df_rpe2 = df.loc[df['date'].str.contains(str(df_game2['date']))]
+
+        players_dict = {i: ['Y', 'Y'] for i in name_players}
 
         for player in name_players:
             # notes game 1
@@ -70,15 +68,15 @@ def transformation_matrix(data, k, name_players=None):
         # add to transformation matrix
         for val in players_dict.values():
             mat[cols.index(str(val[0]))][cols.index(str(val[1]))] += 1
-
     transformation_matrix_df = pd.DataFrame(mat, index=cols, columns=cols)
 
     # normalize
     # transformation_matrix_df = transformation_matrix_df.div(transformation_matrix_df.sum(axis=1), axis=0).fillna(0)
 
     # save to csv
-    transformation_matrix_df.to_csv('transformation_matrix_examples/transformation_matrix_all_games.csv',
+    transformation_matrix_df.to_csv(f'transformation_matrix_examples/{name_csv}.csv',
                                     index=cols, encoding='utf-8')
+
     return transformation_matrix_df
 
 
@@ -91,13 +89,11 @@ def filters(x=0, y=100, result_label=None, players=None, date=None):
 
     # result
     if result_label is not None:
-        df.drop(df[df['result_label'] != result_label].index, inplace=True)
+        df = df.drop(df[df['result_label'] != result_label].index, inplace=True)
 
     # bets
-    df.drop(df[(df['bet_team_home'] > y) & (df['bet_team_home'] < x) & (df['team_home'] == "Hapoel Jerusalem")].index,
-            inplace=True)
-    df.drop(df[(df['bet_team_away'] > y) & (df['bet_team_away'] < x) & (df['team_away'] == "Hapoel Jerusalem")].index,
-            inplace=True)
+    df = df[(((df['bet_team_home'] <= y) & (df['bet_team_home'] >= x)) & (df['team_home'] == "Hapoel Jerusalem")) |
+            (((df['bet_team_away'] <= y) & (df['bet_team_away'] >= x)) & (df['team_away'] == "Hapoel Jerusalem"))]
 
     # dates
     if date is not None:
@@ -150,9 +146,11 @@ def likelihood_ratio_multinomial(observed1, observed2):
     return stat, p_value
 
 
-mat = transformation_matrix(filters(), k=10)
+mat1 = transformation_matrix(filters(x=0, y=3), k=10, name_csv='transformation_matrix_no_surprise_win.csv')
+mat2 = transformation_matrix(filters(x=3, y=100), k=10, name_csv='transformation_matrix_surprise_win.csv')
 
-stat, p_value = likelihood_ratio_multinomial(mat.iloc[6].values, mat.iloc[7].values)
+
+stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values, mat2.iloc[5].values)
 print(f"Test statistic: {stat}")
 print(f"P-value: {p_value}")
 # print(transformation_matrix(filters(players=list(config.PLAYERS.values())[:10]), k=20,
