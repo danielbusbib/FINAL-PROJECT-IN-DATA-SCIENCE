@@ -84,12 +84,20 @@ def filters(x=0, y=100, result_label=None, players=None, date=None):
     df = pd.read_csv('data.csv')
     # players
     if players is not None:
-        cols_to_drop_players = df.columns[df.columns.get_loc('adeley_adebayo'):]
-        df = df.drop(columns=[col for col in cols_to_drop_players if col not in players])
+        cols_to_drop_players = df.columns[df.columns.get_loc('adeley_adebayo'):].values
+        print(cols_to_drop_players)
+        ll = [col for col in cols_to_drop_players if col not in players]
+        print(ll)
+        df.drop(columns=ll, inplace=True)
+        print(df.columns)
+        # print(players)
+        # print([col for col in cols_to_drop_players if col not in players])
+        # print(df.columns)
+        # print()
 
     # result
     if result_label is not None:
-        df = df.drop(df[df['result_label'] != result_label].index, inplace=True)
+        df.drop(df[df['result_label'] != result_label].index, inplace=True)
 
     # bets
     df = df[(((df['bet_team_home'] <= y) & (df['bet_team_home'] >= x)) & (df['team_home'] == "Hapoel Jerusalem")) |
@@ -146,13 +154,61 @@ def likelihood_ratio_multinomial(observed1, observed2):
     return stat, p_value
 
 
-mat1 = transformation_matrix(filters(x=0, y=3), k=10, name_csv='transformation_matrix_no_surprise_win.csv')
-mat2 = transformation_matrix(filters(x=3, y=100), k=10, name_csv='transformation_matrix_surprise_win.csv')
+def matrix_test(mat1, mat2, notes):
+    T = 0
+    df = 9 * (len(notes) - 1)
+    for n in notes:
+        stat, p_value = likelihood_ratio_multinomial(mat1.iloc[n].values[:11], mat2.iloc[n].values[:11])
+        T += stat
+    test_p_value = 1 - chi2.cdf(T, df)
+    return test_p_value
 
 
-stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values, mat2.iloc[5].values)
-print(f"Test statistic: {stat}")
-print(f"P-value: {p_value}")
+def create_transformation_matrix_combinations():
+    combinations = list()
+    # generate regular matrix without any filter
+    reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic.csv')
+    combinations.append(reg)
+    results = [1, 0, -1]
+    str_results = ["win", "draw", "loss"]
+    # generate for each result label a transformation matrix when the result was expected and not expected
+    for i in range(len(results)):
+        combinations.append(transformation_matrix(filters(x=0, y=3, result_label=results[i]), k=10,
+                                                  name_csv=f"transformation_matrix_no_surprise_{str_results[i]}.csv"))
+        combinations.append(transformation_matrix(filters(x=3, y=100, result_label=results[i]), k=10,
+                                                  name_csv=f'transformation_matrix_surprise_{str_results[i]}.csv'))
+
+    # generate transformation matrix for each position on the pitch
+    positions_str = ["GK", "DF", "ATT", "MF"]
+    for pos in positions_str:
+        players = [players for players in config.POSITION.keys() if config.POSITION[players] == pos]
+        combinations.append(transformation_matrix(filters(players=players), k=10,
+                                                  name_csv=f"transformation_matrix_{pos}.csv", name_players=players))
+
+    # generate transformation matrix for each position on the pitch and the result
+    for pos in positions_str:
+        for i in range(len(results)):
+            lst_players = [players for players in config.POSITION.keys() if config.POSITION[players] == pos]
+            combinations.append(
+                transformation_matrix(filters(x=0, y=3, result_label=results[i], players=lst_players), k=10,
+                                      name_csv=f"transformation_matrix_no_surprise_{str_results[i]}_{pos}.csv"
+                                      , name_players=lst_players))
+            combinations.append(
+                transformation_matrix(filters(x=3, y=100, result_label=results[i], players=lst_players), k=10,
+                                      name_csv=f'transformation_matrix_surprise_{str_results[i]}_{pos}.csv',
+                                      name_players=lst_players))
+    return combinations
+
+# mat1 = transformation_matrix(filters(x=0, y=3), k=10, name_csv='transformation_matrix_no_surprise_win.csv')
+# mat2 = transformation_matrix(filters(x=3, y=100), k=10, name_csv='transformation_matrix_surprise_win.csv')
+#
+# # print(mat1.iloc[3].values[:11])
+# # stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values[:11], mat1.iloc[6].values[:11])
+# # print(f"Test statistic: {stat}")
+# p_value = matrix_test(mat1, mat2, notes=[3, 4, 5, 6, 7, 8])
+# print(f"P-value: {p_value}")
 # print(transformation_matrix(filters(players=list(config.PLAYERS.values())[:10]), k=20,
 #                             name_players=list(config.PLAYERS.values())[:10]))
 # date=['04/03/2023', '18/04/2023']
+
+create_transformation_matrix_combinations()
