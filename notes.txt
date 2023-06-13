@@ -1,0 +1,36 @@
+To perform a likelihood ratio multinomial test on two vectors of different sums,
+we need to specify the null hypothesis and alternative hypothesis. Let's assume we have two vectors,
+ vector A and vector B, and we want to test if they have the same underlying distribution.
+
+Null hypothesis (H0): Vector A and Vector B have the same underlying distribution.
+Alternative hypothesis (H1): Vector A and Vector B do not have the same underlying distribution.
+
+Here's a step-by-step guide on how to perform a likelihood ratio multinomial test:
+
+Step 1: Calculate the observed frequencies:
+   - For vector A, calculate the observed frequency of each category.
+   - For vector B, calculate the observed frequency of each category.
+
+Step 2: Calculate the expected frequencies:
+   - Combine the two vectors to obtain the total number of observations in each category.
+   - Calculate the expected frequency of each category assuming that both vectors have the same underlying distribution.
+   - This can be done by summing the observed frequencies for each category and then dividing by the total number
+        of observations.
+
+Step 3: Calculate the likelihood ratio statistic:
+   - Calculate the likelihood ratio statistic (G) using the formula: G = 2 * ∑(O * ln(O/E)),
+    where O represents the observed frequency and E represents the expected frequency for each category.
+
+Step 4: Determine the degrees of freedom:
+   - Degrees of freedom (df) is equal to the number of categories minus 1. In this case,
+    it would be the number of categories in the vectors minus 1.
+
+Step 5: Calculate the p-value:
+   - Calculate the p-value associated with the likelihood ratio statistic using the chi-square
+    distribution with the degrees of freedom obtained in Step 4.
+
+Step 6: Compare the p-value with the significance level (α):
+   - If the p-value is less than the chosen significance level (α), typically 0.05,
+   reject the null hypothesis and conclude that the vectors have different underlying distributions.
+   - If the p-value is greater than or equal to the significance level, fail to reject the null hypothesis
+    and conclude that there is not enough evidence to suggest that the vectors have different underlying distributions.
