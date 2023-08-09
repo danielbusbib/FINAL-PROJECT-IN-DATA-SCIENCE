@@ -295,6 +295,11 @@ def write_rpe():
             writer.writerow([d] + cur_l.copy())
 
 
-if __name__ == "__main__":
-    # parse_seasons(seasons_id=[23, 24])
-    write_rpe()
+# if __name__ == "__main__":
+#     # parse_seasons(seasons_id=[23, 24])
+#     write_rpe()
+
+url = f"https://www.football.org.il/team-details/team-games/?team_id=5981&season_id={24}"
+response = requests.get(url)
+soup = BeautifulSoup(response.content, "html.parser")
+print(soup)

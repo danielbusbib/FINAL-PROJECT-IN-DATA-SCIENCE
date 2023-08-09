@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import multinomial
+from scipy.special import comb
+from scipy.stats import multinomial, chi2_contingency
 from scipy.stats import chi2
+import matplotlib.pyplot as plt
+import scipy.stats
 
 # Transformation matrix
 import config
@@ -76,6 +79,7 @@ def transformation_matrix(data, k, name_players=None, name_csv=""):
     # save to csv
     transformation_matrix_df.to_csv(f'transformation_matrix_examples/{name_csv}.csv',
                                     index=cols, encoding='utf-8')
+    # print(transformation_matrix_df)
 
     return transformation_matrix_df
 
@@ -119,46 +123,45 @@ def likelihood_test(vector1, vector2):
     print("p-value:", p_value)
 
 
-def likelihood_ratio_multinomial(observed1, observed2):
-    """
-    Perform a likelihood ratio multinomial test on two vectors of different sums.
+def likelihood_ratio_test(vector1, vector2, alpha):
+    # Calculate the total counts for each vector
+    n1 = np.sum(vector1)
+    n2 = np.sum(vector2)
 
-    Arguments:
-    observed1 -- observed frequencies in vector 1 (numpy array or list)
-    observed2 -- observed frequencies in vector 2 (numpy array or list)
+    # Calculate the probabilities for each category
+    p1 = vector1 / n1
+    p2 = vector2 / n2
 
-    Returns:
-    stat -- test statistic (chi-square value)
-    p_value -- p-value associated with the test statistic
-    """
-    # Calculate the sums of the observed frequencies
-    sum1 = np.sum(observed1)
-    sum2 = np.sum(observed2)
-    observed1 = observed1 + 1e-10
-    # Calculate the expected frequencies assuming the null hypothesis of equal probabilities
-    expected = (sum1 * observed1 + sum2 * observed2) / (sum1 + sum2)
+    # Calculate the likelihood under H0 (same distribution)
+    L0 = comb(n1, vector1).prod() * (p1 ** vector1).prod()
 
-    # Calculate the test statistic (likelihood ratio)
-    stat = 2 * np.sum(observed1 * np.log(observed1 / expected))
+    # Calculate the likelihood under H1 (different distributions)
+    L1 = comb(n2, vector2).prod() * (p2 ** vector2).prod()
 
-    # Calculate the degrees of freedom
-    df = len(observed1) - 1
+    # Calculate the likelihood ratio
+    LR = L1 / L0
 
-    # Calculate the p-value associated with the test statistic
-    p_value = 1 - chi2.cdf(stat, df)
+    # Calculate the critical value from the chi-squared distribution
+    df = len(vector1) - 1  # Degrees of freedom
+    critical_value = chi2.ppf(1 - alpha, df)
 
-    return stat, p_value
+    # Compare the likelihood ratio to the critical value
+    if LR > critical_value:
+        return "Reject H0: The two vectors do not come from the same distribution."
+    else:
+        return "Fail to reject H0: The two vectors may come from the same distribution."
 
 
-def matrix_test(mat1, mat2, notes):
-    print(mat1)
-    print()
-    print(mat2)
+def matrix_test(mat1, mat2, notes=[3, 4, 5, 6, 7]):
+    # print(mat1)
+    # print()
+    # print(mat2)
     T = 0
     df = 9 * (len(notes) - 1)
-    for n in notes:
-        stat, p_value = likelihood_ratio_multinomial(mat1.iloc[n].values[1:11], mat2.iloc[n].values[1:11])
-        T += stat
+    # for n in notes:
+    #     stat, p_value = multinomial_likelihood_ratio_test(mat1.iloc[n].values[notes], mat2.iloc[n].values[notes])
+    #     T += stat
+    print(T, '  B   ', chi2.cdf(T, df))
     test_p_value = 1 - chi2.cdf(T, df)
     return test_p_value
 
@@ -176,8 +179,8 @@ def create_transformation_matrix_combinations():
             rows_condition = filters(x=x, y=y, result_label=results[i])
             t1 = transformation_matrix(rows_condition, k=10, name_csv=title + f"{str_results[i]}")
             df = pd.read_csv('data.csv')
-            dates_to_delete = rows_condition["date"]
-            overall_dates = df["date"]
+            dates_to_delete = rows_condition["date"].values
+            overall_dates = df["date"].values
             for date in overall_dates:
                 if date in dates_to_delete:
                     df = df.drop(df[df['date'] == date].index)
@@ -220,8 +223,8 @@ def create_transformation_matrix_combinations():
                 df = df.drop(columns=players)
                 index = df.columns.get_loc('result_label') + 1
                 name_players_col = df.columns[index:]
-                dates_to_delete = rows_condition["date"]
-                overall_dates = df["date"]
+                dates_to_delete = rows_condition["date"].values
+                overall_dates = df["date"].values
                 for date in overall_dates:
                     if date in dates_to_delete:
                         df = df.drop(df[df['date'] == date].index)
@@ -236,15 +239,6 @@ def create_transformation_matrix_combinations():
     # matrix_position_result(3, 100, "transformation_matrix_surprise_")
 
     return combinations
-
-
-# l = create_transformation_matrix_combinations()
-# d = l[0][0]
-reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic')
-print(reg)
-# print(likelihood_ratio_multinomial(reg.iloc[6].values[:11], reg.iloc[8].values[:11]))
-# p_value = matrix_test(l[0][0], l[0][1], notes=[6, 7, 8])
-# print(f"P-value: {p_value}")
 
 
 def compress(mat, num_categories=2):
@@ -263,16 +257,106 @@ def compress(mat, num_categories=2):
         df4 = mat.iloc[7:].sum()
         return pd.DataFrame([df1, df2, df3, df4], index=['L', 'ML', 'MH', 'H'])
 
+
+def wilks_likelihood_test(note):
+    ALL_GAMES = pd.read_csv('transformation_matrix_examples/transformation_basic.csv', index_col=0)
+    ALL_GAMES = compress(ALL_GAMES, 2)
+
+    A = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss.csv', index_col=0)
+    A = compress(A, 2)
+
+    B = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss_mashlim.csv', index_col=0)
+    B = compress(B, 2)
+
+    # H0
+    p_H0 = ALL_GAMES.iloc[note].values[1:11] / (ALL_GAMES.iloc[note].values[1:11].sum())
+    # H1
+    p_A_H1 = A.iloc[note].values[1:11] / (A.iloc[note].values[1:11].sum())
+    p_B_H1 = B.iloc[note].values[1:11] / (B.iloc[note].values[1:11].sum())
+
+    L_H0, L_H1 = 1, 1
+    for i in range(len(p_H0)):
+        L_H0 *= p_H0[i] ** (ALL_GAMES.iloc[note].values[1:11][i])
+        L_H1 *= p_A_H1[i] ** (A.iloc[note].values[1:11][i])
+        L_H1 *= p_B_H1[i] ** (B.iloc[note].values[1:11][i])
+    W = L_H1 / L_H0
+    T = 2 * np.log(W)
+
+    # find Chi-Square critical value
+    M = scipy.stats.chi2.ppf(1 - .05, df=9)
+    if T >= M:
+        print("H1 IS TRUE.")
+    else:
+        print("H0 IS TRUE.")
+
+
+# for i in range(1, 11):
+#     print(i)
+# wilks_likelihood_test(note=0)
+
+
+def plot_p_values_heatmap():
+    reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic')
+    # Generate the heatmap matrix
+    heatmap = np.zeros((10, 10))
+    for a in range(10):
+        for b in range(10):
+            print('need fix')
+            # heatmap[a, b] = \
+            #     multinomial_likelihood_ratio_test(reg.iloc[a + 1].values[1:11], reg.iloc[b + 1].values[1:11])[1] < 0.05
+
+    fig, ax = plt.subplots(figsize=(12, 12))
+    im = ax.imshow(heatmap, cmap=plt.get_cmap('viridis'))
+
+    ax.set_title("P-value")
+    ax.set_xticks(np.arange(10))
+    ax.set_yticks(np.arange(10))
+    # And to label them with the relevant parties names
+    ax.set_xticklabels(range(1, 11), rotation=90)
+    ax.set_yticklabels(range(1, 11))
+    ax.set_xlabel("note")
+    ax.set_ylabel("note")
+
+    # # Loop over data dimensions to create text annotations.
+    # for i in range(n_21):
+    #     for j in range(n_22):
+    #         text = ax.text(j, i, round(M[i, j], 3), ha="center", va="center", color="w")
+
+    # Create colorbar
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel('votes probability', rotation=-90, va="bottom")
+
+    plt.show()
+
+# d = l[0][0]
+# reg = l[0]
+# reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic')
+
+
+# print(reg.iloc[5].values[:11])
+# print(multinomial_likelihood_ratio_test(reg.iloc[6].values[1:11], reg.iloc[5].values[1:11]))
+# print(likelihood_ratio_test(reg.iloc[5].values[:11], reg.iloc[7].values[:11], 0.05))
+# p_value = matrix_test(l[0][0], l[0][1], notes=[6, 7, 8])
+# print(f"P-value: {p_value}")
+
+# combinations = create_transformation_matrix_combinations()
+# win_mat, no_win_mat = combinations[0]
+# print(win_mat)
+# print(no_win_mat)
+# # print(combinations[1][1])
+# print(matrix_test(win_mat, no_win_mat))
+
+
 # mat1 = transformation_matrix(filters(x=0, y=3), k=10, name_csv='transformation_matrix_no_surprise_win.csv')
-# print(mat1)
-# print()
-# print(compress(mat1, num_categories=4))
+# # print(mat1)
+# # print()
+# # print(compress(mat1, num_categories=4))
 # mat2 = transformation_matrix(filters(x=3, y=100), k=10, name_csv='transformation_matrix_surprise_win.csv')
-#
-# # print(mat1.iloc[3].values[:11])
-# # stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values[:11], mat1.iloc[6].values[:11])
+# #
+# # # print(mat1.iloc[3].values[:11])
+# stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values[:11], mat1.iloc[6].values[:11])
 # # print(f"Test statistic: {stat}")
-# p_value = matrix_test(mat1, mat2, notes=[3, 4, 5, 6, 7, 8])
+# p_value = matrix_test(mat1, mat2)
 # print(f"P-value: {p_value}")
 # print(transformation_matrix(filters(players=list(config.PLAYERS.values())[:10]), k=20,
 #                             name_players=list(config.PLAYERS.values())[:10]))
