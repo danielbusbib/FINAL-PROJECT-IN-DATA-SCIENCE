@@ -99,9 +99,14 @@ def filters(x=0, y=100, result_label=None, players=None, date=None):
     if result_label is not None:
         df.drop(df[df['result_label'] != result_label].index, inplace=True)
 
-    # bets
-    df = df[(((df['bet_team_home'] <= y) & (df['bet_team_home'] >= x)) & (df['team_home'] == "Hapoel Jerusalem")) |
-            (((df['bet_team_away'] <= y) & (df['bet_team_away'] >= x)) & (df['team_away'] == "Hapoel Jerusalem"))]
+    # bets win
+    if result_label != 0:
+        df = df[(((df['bet_team_home'] <= y) & (df['bet_team_home'] >= x)) & (df['team_home'] == "Hapoel Jerusalem")) |
+                (((df['bet_team_away'] <= y) & (df['bet_team_away'] >= x)) & (df['team_away'] == "Hapoel Jerusalem"))]
+
+    # bets draw
+    else:
+        df = df[((df['bet_draw'] <= y) & (df['bet_draw'] >= x))]
 
     # dates
     if date is not None:
@@ -112,52 +117,9 @@ def filters(x=0, y=100, result_label=None, players=None, date=None):
     return df
 
 
-def likelihood_test(vector1, vector2):
-    # Compute the total number of observations
-    n = sum(vector1)
-
-    # Perform the multinomial test
-    p_value = multinomial.pmf([vector2], n=n, p=[vector1 / n])
-
-    # Print the p-value
-    print("p-value:", p_value)
-
-
-def likelihood_ratio_test(vector1, vector2, alpha):
-    # Calculate the total counts for each vector
-    n1 = np.sum(vector1)
-    n2 = np.sum(vector2)
-
-    # Calculate the probabilities for each category
-    p1 = vector1 / n1
-    p2 = vector2 / n2
-
-    # Calculate the likelihood under H0 (same distribution)
-    L0 = comb(n1, vector1).prod() * (p1 ** vector1).prod()
-
-    # Calculate the likelihood under H1 (different distributions)
-    L1 = comb(n2, vector2).prod() * (p2 ** vector2).prod()
-
-    # Calculate the likelihood ratio
-    LR = L1 / L0
-
-    # Calculate the critical value from the chi-squared distribution
-    df = len(vector1) - 1  # Degrees of freedom
-    critical_value = chi2.ppf(1 - alpha, df)
-
-    # Compare the likelihood ratio to the critical value
-    if LR > critical_value:
-        return "Reject H0: The two vectors do not come from the same distribution."
-    else:
-        return "Fail to reject H0: The two vectors may come from the same distribution."
-
-
 def matrix_test(mat1, mat2, notes=[3, 4, 5, 6, 7]):
-    # print(mat1)
-    # print()
-    # print(mat2)
     T = 0
-    df = 9 * (len(notes) - 1)
+    df = (len(mat1) - 1) * (len(notes) - 1)
     # for n in notes:
     #     stat, p_value = multinomial_likelihood_ratio_test(mat1.iloc[n].values[notes], mat2.iloc[n].values[notes])
     #     T += stat
@@ -166,55 +128,92 @@ def matrix_test(mat1, mat2, notes=[3, 4, 5, 6, 7]):
     return test_p_value
 
 
-def create_transformation_matrix_combinations():
-    combinations = list()
-    # generate regular matrix without any filter
-    reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic')
-    # combinations.append(reg)
+# def create_matrices_combinations():
+#     results = [1, 0, -1]
+#     str_results = ["win", "draw", "loss"]
+#     dict_matrices = {}
+#
+#     def create_matrices(title, rows_condition, i):
+#         t1 = transformation_matrix(rows_condition, k=10, name_csv=title + f"{str_results[i]}")
+#         df = pd.read_csv('data.csv')
+#         dates_to_delete = rows_condition["date"].values
+#         overall_dates = df["date"].values
+#         for date in overall_dates:
+#             if date in dates_to_delete:
+#                 df = df.drop(df[df['date'] == date].index)
+#         t2 = transformation_matrix(df, k=10, name_csv=title + f'{str_results[i]}_complementary')
+#         dict_matrices[title + f"{str_results[i]}"] = (t1, t2)
+#
+#     def surprise_matrix(title):
+#         for i in range(len(results)):
+#             if results[i] == -1:  # loss
+#                 rows_condition = filters(x=0, y=3, result_label=results[i])
+#             else:
+#                 rows_condition = filters(x=3, y=100, result_label=results[i])
+#             create_matrices(title, rows_condition, i)
+#
+#     def no_surprise_matrix(title):
+#         for i in range(len(results)):
+#             if results[i] == -1:  # loss
+#                 rows_condition = filters(x=3, y=100, result_label=results[i])
+#             else:
+#                 rows_condition = filters(x=0, y=3, result_label=results[i])
+#             create_matrices(title, rows_condition, i)
+#
+#     surprise_matrix(title="surprise_")
+#     no_surprise_matrix(title="no_surprise_")
+#
+#     return dict_matrices
+
+
+def create_matrices_combinations():
     results = [1, 0, -1]
     str_results = ["win", "draw", "loss"]
+    dict_matrices = {}
 
-    def matrix_result(x, y, title):
+    def create_matrices(title, rows_condition, i):
+        t1 = transformation_matrix(rows_condition, k=10, name_csv=title + f"{str_results[i]}")
+        df = pd.read_csv('data.csv')
+        dates_to_delete = rows_condition["date"].values
+        overall_dates = df["date"].values
+        for date in overall_dates:
+            if date in dates_to_delete:
+                df = df.drop(df[df['date'] == date].index)
+        t2 = transformation_matrix(df, k=10, name_csv=title + f'{str_results[i]}_complement')
+        dict_matrices[title + f"{str_results[i]}"] = (t1, t2)
+
+    def create_matrix_surprise(title, x_loss, y_loss, x_other, y_other):
         for i in range(len(results)):
-            rows_condition = filters(x=x, y=y, result_label=results[i])
-            t1 = transformation_matrix(rows_condition, k=10, name_csv=title + f"{str_results[i]}")
-            df = pd.read_csv('data.csv')
-            dates_to_delete = rows_condition["date"].values
-            overall_dates = df["date"].values
-            for date in overall_dates:
-                if date in dates_to_delete:
-                    df = df.drop(df[df['date'] == date].index)
-            t2 = transformation_matrix(df, k=10, name_csv=title + f'{str_results[i]}_mashlim')
-            combinations.append((t1, t2))
+            if results[i] == -1:  # loss
+                rows_condition = filters(x=x_loss, y=y_loss, result_label=results[i])
+            else:
+                rows_condition = filters(x=x_other, y=y_other, result_label=results[i])
+            create_matrices(title, rows_condition, i)
 
-    # generate for each result label a transformation matrix when the result was expected
-    matrix_result(0, 3, "transformation_matrix_no_surprise_")
-
-    # generate for each result label a transformation matrix when the result was not expected
-    matrix_result(3, 100, "transformation_matrix_surprise_")
+    # surprise_matrix
+    create_matrix_surprise('matrix_surprise_', 0, 3, 3, 100)
+    # no_surprise_matrix
+    create_matrix_surprise('no_matrix_surprise_', 3, 100, 0, 3)
 
     positions_str = ["GK", "DF", "ATT", "MF"]
 
-    def matrix_position():
-        for pos in positions_str:
-            players = [players for players in config.POSITION.keys() if config.POSITION[players] == pos]
-            t1 = transformation_matrix(filters(players=players), k=10,
-                                       name_csv=f"transformation_matrix_{pos}", name_players=players)
-            df = pd.read_csv('data.csv')
-            df = df.drop(columns=players)
-            index = df.columns.get_loc('result_label') + 1
-            name_players_col = df.columns[index:]
-            t2 = transformation_matrix(df, k=10, name_csv=f"transformation_matrix_{pos}_mashlim",
-                                       name_players=name_players_col.tolist())
-            combinations.append((t1, t2))
 
-    # generate transformation matrix for each position on the pitch
-    # matrix_position()
 
-    def matrix_position_result(x, y, title):
+
+    # # # surprise_matrix per position
+    # matrix_surprise_position('matrix_surprise_', 0, 3, 3, 100)
+    # # no_surprise_matrix per position
+    # matrix_surprise_position('no_matrix_surprise_', 3, 100, 0, 3)
+
+
+    def matrix_position_result(title):
         for pos in positions_str:
             for i in range(len(results)):
-                rows_condition = filters(x=x, y=y, result_label=results[i])
+                if results[i] == -1:  # loss
+                    rows_condition = filters(x=0, y=3, result_label=results[i])
+                else:
+                    rows_condition = filters(x=3, y=100, result_label=results[i])
+
                 players = [players for players in config.POSITION.keys() if config.POSITION[players] == pos]
                 t1 = transformation_matrix(rows_condition, k=10,
                                            name_csv=title + f'{str_results[i]}_{pos}.csv',
@@ -229,70 +228,98 @@ def create_transformation_matrix_combinations():
                     if date in dates_to_delete:
                         df = df.drop(df[df['date'] == date].index)
                 t2 = transformation_matrix(df, k=10,
-                                           name_csv=title + f"{str_results[i]}_{pos}_mashlim",
+                                           name_csv=title + f"{str_results[i]}_{pos}_complement",
                                            name_players=name_players_col.tolist())
-                combinations.append((t1, t2))
-
-    # # generate transformation matrix for each position on the pitch with expected result
-    # matrix_position_result(0, 3, "transformation_matrix_surprise_")
-    # # generate transformation matrix for each position on the pitch with not expected result
-    # matrix_position_result(3, 100, "transformation_matrix_surprise_")
-
-    return combinations
+                dict_matrices[title + pos + '_' + str_results[i]] = (t1, t2)
+    matrix_position_result("surprise_")
+    return dict_matrices
 
 
-def compress(mat, num_categories=2):
+def compress(mat, num_categories):
     if num_categories == 2:
         # L(1-5), H(6-10)
         # Divide the DataFrame into two parts
         n = 6
         df1 = mat.iloc[:n].sum()
-        df2 = mat.iloc[n:].sum()
-        return pd.DataFrame([df1, df2], index=['L', 'H'])
+        df2 = mat.iloc[n:11].sum()
+        df = pd.DataFrame([df1, df2], index=['L', 'H']).T
+        df1 = df.iloc[:n].sum()
+        df2 = df.iloc[n:11].sum()
+        return pd.DataFrame([df1, df2], index=['L', 'H']).T
 
-    if num_categories == 4:
-        df1 = mat.iloc[:5].sum()
-        df2 = mat.iloc[5:6].sum()
-        df3 = mat.iloc[6:7].sum()
-        df4 = mat.iloc[7:].sum()
-        return pd.DataFrame([df1, df2, df3, df4], index=['L', 'ML', 'MH', 'H'])
+    if num_categories == 3:
+        df1 = mat.iloc[:4].sum()
+        df2 = mat.iloc[4:7].sum()
+        df3 = mat.iloc[7:11].sum()
+        df = pd.DataFrame([df1, df2, df3], index=['L', 'M', 'H']).T
+        df1 = df.iloc[:4].sum()
+        df2 = df.iloc[4:7].sum()
+        df3 = df.iloc[7:11].sum()
+        return pd.DataFrame([df1, df2, df3], index=['L', 'M', 'H']).T
 
 
-def wilks_likelihood_test(note):
+# ALL_GAMES = pd.read_csv('transformation_matrix_examples/transformation_basic.csv', index_col=0)
+# ALL_GAMES = compress(ALL_GAMES, 3)
+# print(ALL_GAMES)
+
+
+def wilks_likelihood_test(note, A, B):
     ALL_GAMES = pd.read_csv('transformation_matrix_examples/transformation_basic.csv', index_col=0)
-    ALL_GAMES = compress(ALL_GAMES, 2)
-
-    A = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss.csv', index_col=0)
-    A = compress(A, 2)
-
-    B = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss_mashlim.csv', index_col=0)
-    B = compress(B, 2)
-
+    ALL_GAMES = compress(ALL_GAMES, num_categories=2)
+    # print(ALL_GAMES)
+    # A = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss.csv', index_col=0)
+    A = compress(A, num_categories=2)
+    # print(A)
+    # B = pd.read_csv('transformation_matrix_examples/transformation_matrix_no_surprise_loss_mashlim.csv', index_col=0)
+    B = compress(B, num_categories=2)
+    # print(B)
     # H0
-    p_H0 = ALL_GAMES.iloc[note].values[1:11] / (ALL_GAMES.iloc[note].values[1:11].sum())
+    p_H0 = ALL_GAMES.iloc[note].values / (ALL_GAMES.iloc[note].values.sum())
     # H1
-    p_A_H1 = A.iloc[note].values[1:11] / (A.iloc[note].values[1:11].sum())
-    p_B_H1 = B.iloc[note].values[1:11] / (B.iloc[note].values[1:11].sum())
+    p_A_H1 = A.iloc[note].values / (A.iloc[note].values.sum())
+    p_B_H1 = B.iloc[note].values / (B.iloc[note].values.sum())
 
     L_H0, L_H1 = 1, 1
     for i in range(len(p_H0)):
-        L_H0 *= p_H0[i] ** (ALL_GAMES.iloc[note].values[1:11][i])
-        L_H1 *= p_A_H1[i] ** (A.iloc[note].values[1:11][i])
-        L_H1 *= p_B_H1[i] ** (B.iloc[note].values[1:11][i])
+        # LIKELIHOOD OF H0
+        L_H0 *= p_H0[i] ** (ALL_GAMES.iloc[note].values[i])
+        # LIKELIHOOD OF H1
+        L_H1 *= p_A_H1[i] ** (A.iloc[note].values[i])
+        L_H1 *= p_B_H1[i] ** (B.iloc[note].values[i])
+
     W = L_H1 / L_H0
     T = 2 * np.log(W)
 
     # find Chi-Square critical value
-    M = scipy.stats.chi2.ppf(1 - .05, df=9)
+    M = scipy.stats.chi2.ppf(1 - .05, df=len(p_H0) - 1)
     if T >= M:
         print("H1 IS TRUE.")
     else:
         print("H0 IS TRUE.")
 
+    # Calculate the p-value based on the chi-square statistic T
+    p_value = 1 - scipy.stats.chi2.cdf(T, df=len(p_H0) - 1)
 
+    # Determine which hypothesis is true based on the p-value
+    if p_value < 0.05:
+        result = "H1"
+    else:
+        result = "H0"
+
+    # return T, p_value, result
+
+
+dicti = create_matrices_combinations()
+for name in dicti:
+    print(name)
+    wilks_likelihood_test(note=1, A=dicti[name][0], B=dicti[name][1])
+    print()
+
+
+# print(dicti)
 # for i in range(1, 11):
 #     print(i)
-# wilks_likelihood_test(note=0)
+# print(wilks_likelihood_test(note=1))
 
 
 def plot_p_values_heatmap():
@@ -327,39 +354,3 @@ def plot_p_values_heatmap():
     cbar.ax.set_ylabel('votes probability', rotation=-90, va="bottom")
 
     plt.show()
-
-# d = l[0][0]
-# reg = l[0]
-# reg = transformation_matrix(filters(), k=10, name_csv='transformation_basic')
-
-
-# print(reg.iloc[5].values[:11])
-# print(multinomial_likelihood_ratio_test(reg.iloc[6].values[1:11], reg.iloc[5].values[1:11]))
-# print(likelihood_ratio_test(reg.iloc[5].values[:11], reg.iloc[7].values[:11], 0.05))
-# p_value = matrix_test(l[0][0], l[0][1], notes=[6, 7, 8])
-# print(f"P-value: {p_value}")
-
-# combinations = create_transformation_matrix_combinations()
-# win_mat, no_win_mat = combinations[0]
-# print(win_mat)
-# print(no_win_mat)
-# # print(combinations[1][1])
-# print(matrix_test(win_mat, no_win_mat))
-
-
-# mat1 = transformation_matrix(filters(x=0, y=3), k=10, name_csv='transformation_matrix_no_surprise_win.csv')
-# # print(mat1)
-# # print()
-# # print(compress(mat1, num_categories=4))
-# mat2 = transformation_matrix(filters(x=3, y=100), k=10, name_csv='transformation_matrix_surprise_win.csv')
-# #
-# # # print(mat1.iloc[3].values[:11])
-# stat, p_value = likelihood_ratio_multinomial(mat1.iloc[5].values[:11], mat1.iloc[6].values[:11])
-# # print(f"Test statistic: {stat}")
-# p_value = matrix_test(mat1, mat2)
-# print(f"P-value: {p_value}")
-# print(transformation_matrix(filters(players=list(config.PLAYERS.values())[:10]), k=20,
-#                             name_players=list(config.PLAYERS.values())[:10]))
-# date=['04/03/2023', '18/04/2023']
-
-# create_transformation_matrix_combinations()
