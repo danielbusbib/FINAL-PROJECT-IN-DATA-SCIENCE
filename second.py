@@ -197,14 +197,10 @@ def create_matrices_combinations():
 
     positions_str = ["GK", "DF", "ATT", "MF"]
 
-
-
-
     # # # surprise_matrix per position
     # matrix_surprise_position('matrix_surprise_', 0, 3, 3, 100)
     # # no_surprise_matrix per position
     # matrix_surprise_position('no_matrix_surprise_', 3, 100, 0, 3)
-
 
     def matrix_position_result(title):
         for pos in positions_str:
@@ -231,6 +227,7 @@ def create_matrices_combinations():
                                            name_csv=title + f"{str_results[i]}_{pos}_complement",
                                            name_players=name_players_col.tolist())
                 dict_matrices[title + pos + '_' + str_results[i]] = (t1, t2)
+
     matrix_position_result("surprise_")
     return dict_matrices
 
@@ -263,7 +260,7 @@ def compress(mat, num_categories):
 # print(ALL_GAMES)
 
 
-def wilks_likelihood_test(note, A, B):
+def wilks_likelihood_test(note, A, B, num_categories):
     ALL_GAMES = pd.read_csv('transformation_matrix_examples/transformation_basic.csv', index_col=0)
     ALL_GAMES = compress(ALL_GAMES, num_categories=2)
     # print(ALL_GAMES)
@@ -275,7 +272,11 @@ def wilks_likelihood_test(note, A, B):
     # print(B)
     # H0
     p_H0 = ALL_GAMES.iloc[note].values / (ALL_GAMES.iloc[note].values.sum())
+
     # H1
+    if A.iloc[note].values.sum() == 0 or B.iloc[note].values.sum() == 0:
+        return False, False
+
     p_A_H1 = A.iloc[note].values / (A.iloc[note].values.sum())
     p_B_H1 = B.iloc[note].values / (B.iloc[note].values.sum())
 
@@ -292,28 +293,55 @@ def wilks_likelihood_test(note, A, B):
 
     # find Chi-Square critical value
     M = scipy.stats.chi2.ppf(1 - .05, df=len(p_H0) - 1)
-    if T >= M:
-        print("H1 IS TRUE.")
-    else:
-        print("H0 IS TRUE.")
-
     # Calculate the p-value based on the chi-square statistic T
     p_value = 1 - scipy.stats.chi2.cdf(T, df=len(p_H0) - 1)
 
-    # Determine which hypothesis is true based on the p-value
-    if p_value < 0.05:
-        result = "H1"
+    if T >= M:
+        print("H1 IS TRUE.")
+        return p_value, 'YES'
     else:
-        result = "H0"
+        print("H0 IS TRUE.")
+        return p_value, 'NO'
 
-    # return T, p_value, result
+
+def table():
+    matrices_combinations = create_matrices_combinations()
+    df = pd.DataFrame(
+        columns=['what do we check ?', 'all the grades/compress', 'matrix/vector', 'p-value', 'H1 is true'])
+
+    for name in matrices_combinations:
+        parts = name.split('_')
+        if 'matrix' in parts:
+            parts.remove('matrix')
+        check_name = ' '.join(parts[:])
+        num_categories = 2
+        p_value, result = wilks_likelihood_test(note=1, A=matrices_combinations[name][0],
+                                                B=matrices_combinations[name][1],
+                                                num_categories=num_categories)
+        if not result:
+            continue
+
+        new_row = {
+            'what do we check ?': [check_name],
+            'all the grades/compress': ['vector'],
+            'matrix/vector': [p_value],
+            'p-value': [p_value],
+            'H1 is true': [result]
+        }
+
+        # Convert the new_row dictionary into a DataFrame
+        new_row_df = pd.DataFrame(new_row, columns=df.columns)
+
+        # Concatenate the existing DataFrame and the new row DataFrame
+        df = pd.concat([df, new_row_df], ignore_index=True)
+
+    # Write DataFrame to CSV file
+    csv_filename = 'table_combinations_results.csv'
+    df.to_csv(csv_filename, index=False)
+    return df
 
 
-dicti = create_matrices_combinations()
-for name in dicti:
-    print(name)
-    wilks_likelihood_test(note=1, A=dicti[name][0], B=dicti[name][1])
-    print()
+table()
 
 
 # print(dicti)
