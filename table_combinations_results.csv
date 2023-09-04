@@ -1,15 +1,15 @@
 what do we check ?,all the grades/compress,matrix/vector,p-value,H1 is true
-surprise win,vector,0.0002834243339082665,0.0002834243339082665,YES
-surprise draw,vector,1.0,1.0,NO
-surprise loss,vector,1.0,1.0,NO
-no surprise win,vector,4.743483063518461e-05,4.743483063518461e-05,YES
-no surprise draw,vector,0.00444072747137958,0.00444072747137958,YES
-no surprise loss,vector,0.0004832954954093749,0.0004832954954093749,YES
-surprise DF win,vector,3.000266701747023e-12,3.000266701747023e-12,YES
-surprise DF draw,vector,1.6683321391042227e-12,1.6683321391042227e-12,YES
-surprise DF loss,vector,7.50889350698003e-11,7.50889350698003e-11,YES
-surprise ATT win,vector,2.2973953850424778e-09,2.2973953850424778e-09,YES
-surprise ATT loss,vector,5.689709584588698e-07,5.689709584588698e-07,YES
-surprise MF win,vector,0.0,0.0,YES
-surprise MF draw,vector,0.0,0.0,YES
-surprise MF loss,vector,0.0,0.0,YES
+surprise win,2,vector,0.0002834243339082665,YES
+surprise draw,2,vector,1.0,NO
+surprise loss,2,vector,1.0,NO
+no surprise win,2,vector,4.743483063518461e-05,YES
+no surprise draw,2,vector,0.00444072747137958,YES
+no surprise loss,2,vector,0.0004832954954093749,YES
+surprise DF win,2,vector,3.000266701747023e-12,YES
+surprise DF draw,2,vector,1.6683321391042227e-12,YES
+surprise DF loss,2,vector,7.50889350698003e-11,YES
+surprise ATT win,2,vector,2.2973953850424778e-09,YES
+surprise ATT loss,2,vector,5.689709584588698e-07,YES
+surprise MF win,2,vector,0.0,YES
+surprise MF draw,2,vector,0.0,YES
+surprise MF loss,2,vector,0.0,YES
