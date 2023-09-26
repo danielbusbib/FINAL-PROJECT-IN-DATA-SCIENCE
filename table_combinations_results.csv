@@ -1,7 +1,9 @@
-what do we check ?,all the grades/compress,matrix/vector,p-value,H1 is true
-win VS draw and loss,2,matrix,2.1237150926722848e-09,YES
-surprise win VS no surprise win,2,matrix,0.0,YES
-surprise loss VS no surprise loss,2,matrix,0.0,YES
-win VS draw and loss,3,matrix,8.559815856123976e-09,YES
-surprise win VS no surprise win,3,matrix,0.0,YES
-surprise loss VS no surprise loss,3,matrix,0.0,YES
+what do we check ?,num categories,p-value,H1 is true
+win VS draw and loss,2,2.1237150926722848e-09,YES
+loss VS draw and win,2,3.0874847123385507e-10,YES
+surprise win VS no surprise win,2,0.0,YES
+surprise loss VS no surprise loss,2,0.0,YES
+win VS draw and loss,3,8.559815856123976e-09,YES
+loss VS draw and win,3,1.259839761402759e-07,YES
+surprise win VS no surprise win,3,0.0,YES
+surprise loss VS no surprise loss,3,0.0,YES

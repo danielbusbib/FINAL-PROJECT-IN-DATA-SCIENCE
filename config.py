@@ -50,8 +50,8 @@ PLAYERS = {
     'אבירם זיאת': 'aviram_ziat',
     'כארם זועבי': 'karem_zoabi',
     'אלון אזוגי': 'alon_azugi',
-    'בנימין טרידובסקי': 'beni_tridovski'
-
+    'בנימין טרידובסקי': 'beni_tridovski',
+    'ליאור קאסה': 'lior_kasa'
 }
 
 STADIUMS = {

@@ -1,4 +1,4 @@
-# imports
+# Imports necessary libraries/modules
 from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
@@ -9,23 +9,29 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import pandas as pd
 
-# globals
+# Import configuration settings from the 'config' module
 import config
 
 
 def get_bets(day: int, month: int, year: int):
-    """bets from the site telesport.il"""
+    """Fetches betting information from the telesport.il website for a specific date."""
+    # Configure Selenium to run in headless mode
     options = Options()
     options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
+
+    # Construct the URL for the specific date
     driver.get(
         f'https://www.telesport.co.il/%D7%90%D7%96%D7%95%D7%A8%20%D7%95%D7%95%D7%99%D7%A0%D7%A8#110299/198/'
         f'{year}-{month}-{day}T18:30:00')
+
+    # Extract the HTML content of the page
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     all_text = soup.get_text()
     text_lines = all_text.split('\n')
-    # parse lines
+
+    # Parsing lines to extract betting information
     flag = False
     for line in text_lines:
         if 'כדורסל' in line:
@@ -38,27 +44,31 @@ def get_bets(day: int, month: int, year: int):
             bet_home = bets[:4]
             bet_draw = bets[4:8]
             bet_away = bets[8:12]
+            # Return betting odds
             return bet_home, bet_draw, bet_away
 
 
 def parse_game(season_id: int, game_id: int, home_game: bool):
-    """return time on pitch for each player in game_id on season_id"""
+    """Parses information about a football game, including player statistics."""
     url = f"https://www.football.org.il/leagues/games/game/?season_id={season_id}&game_id={game_id}"
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
     coaches = list()
+    # Extract information about home team's coach
     for coach_line in soup.find_all('div', {'aria-labelledby': 'GAME_COACH_HOME'}):
         coaches.append(coach_line.find('b', {'class': 'name'}).text)
     if len(coaches) == 0:
         coaches.append('')
 
+    # Extract information about guest team's coach
     for coach_line in soup.find_all('div', {'aria-labelledby': 'GAME_COACH_GUEST'}):
         if coach_line.find('b', {'class': 'name'}).text:
             coaches.append(coach_line.find('b', {'class': 'name'}).text)
     if len(coaches) == 1:
         coaches.append('')
 
+    # Initialize lists to store player data
     lst = list(config.PLAYERS.keys())
     lst_time = [0] * len(lst)
 
@@ -70,7 +80,7 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
     for row in soup.find_all('div', {'class': 'node number'}):
         max_time = int(row.find('span', {'class': ''}).text)
 
-    # save not played players
+    # Create a set to store players who did not play in the match
     not_played = set()
     for row in soup.find_all('div', {'class': bench}):
         for row1 in row.find_all('a', {'title': title}):
@@ -79,14 +89,14 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
                 name = name[:name.find(' -')]
             not_played.add(name)
 
-    # save played
+    # Extract data for players who played in the match
     for row_match in soup.find_all('a', {'title': title}):
         for row in row_match.find_all('div', {'class': 'player'}):
-            if str(row.find('span', {'class': 'number'}).text).isalpha():  # coach ou arbitres
+            if str(row.find('span', {'class': 'number'}).text).isalpha():  # Check for coaches or referees
                 break
             number = re.findall(r'\d+', row.find('span', {'class': 'number'}).text)[0]
-            name = row.find('span', {'class': 'name'}).text  # Récupération du nom du joueur
-            if "-" in name:  # cas ou capitaine ou poste
+            name = row.find('span', {'class': 'name'}).text
+            if "-" in name:  # captain case
                 name = name[:name.find(' -')]
             if name in not_played:
                 continue
@@ -97,8 +107,8 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
             elif row.find('span', {'class': 'change-down'}):
                 time_on_pitch = re.findall(r'\d+', row.find('span', {'class': 'change-down'}).text)[0]
 
-            first_yellow_card_minute = second_yellow_card_minute = ''  # Initialisation du nombre de cartons jaunes
-            if row.find('span', {'class': 'yellow'}):  # Vérification de la présence de cartons jaunes
+            first_yellow_card_minute = second_yellow_card_minute = ''  # Check for yellow cards
+            if row.find('span', {'class': 'yellow'}):
                 first_yellow_card_minute = re.findall(r'\d+', row.find('span', {'class': 'yellow'}).text)[0]
                 time_on_pitch = str(time_on_pitch) + 'y'
             if row.find('span', {'class': 'yellow2'}):
@@ -108,11 +118,12 @@ def parse_game(season_id: int, game_id: int, home_game: bool):
             # print([number, name, first_yellow_card_minute, second_yellow_card_minute, time_on_pitch])
 
             lst_time[lst.index(name)] = time_on_pitch
+    # Return coach information and player time data
     return coaches, lst_time
 
 
 def write_bets(date, bets):
-    """append to betsDta.csv the date with the bets from the internet"""
+    """Appends betting data to 'betsData.csv' for a specific date."""
     with open('betsData.csv', mode='a', encoding='utf-8', newline='') as csv_file:
         # write columns titles
         writer = csv.writer(csv_file)
@@ -120,23 +131,24 @@ def write_bets(date, bets):
 
 
 def parse_seasons(seasons_id: typing.List[int]):
+    """Parses data for multiple football seasons and writes it to 'data.csv'."""
     with open('data.csv', mode='w', encoding='utf-8', newline='') as csv_file:
         df_bets = pd.read_csv("betsData.csv")
-        # write columns titles
+        # Create a CSV writer and write column titles
         writer = csv.writer(csv_file)
         writer.writerow(
             ['date', 'coach_team_home', 'team_home', 'bet_team_home', 'bet_draw', 'bet_team_away', 'team_away',
              'coach_team_away', 'match_stadium', 'match_hour', 'result', 'result_label'] +
             list(config.PLAYERS.values()))
 
-        # write data for each season
+        # Process data for each season
         for season_id in seasons_id:
             url = f"https://www.football.org.il/team-details/team-games/?team_id=5981&season_id={season_id}"
             response = requests.get(url)
             soup = BeautifulSoup(response.content, "html.parser")
 
             for row_match in soup.find_all('div', {'class': 'table_row_group'}):
-                # parse each line of match details
+                # Parse each line of match details
                 for row in soup.find_all('a', {'class': 'table_row'}):
                     link_id = row['href'].split('game_id=')[1]
                     date = row.find_all('div', {'class': 'table_col'})[0].text.split('תאריך')[1]
@@ -146,6 +158,9 @@ def parse_seasons(seasons_id: typing.List[int]):
                     match_location = row.find_all('div', {'class': 'table_col'})[2].text.split('אצטדיון')[1]
                     match_hour = row.find_all('div', {'class': 'table_col'})[3].text.split('שעה')[1]
                     result = row.find_all('div', {'class': 'table_col'})[4].text.split('תוצאה')[1]
+
+                    print(f'parsing match...')
+                    print(f'date:{date}')
 
                     if result == 'טרם נקבעה':
                         continue
@@ -166,7 +181,7 @@ def parse_seasons(seasons_id: typing.List[int]):
                         result_label = -1
 
                     dfd = date.split('/')
-                    print(dfd)
+
                     if date in df_bets['date'].values:
                         bets = df_bets[df_bets['date'] == date]['bet_team_home'].values[0], \
                                df_bets[df_bets['date'] == date]['bet_draw'].values[0], \
@@ -178,7 +193,8 @@ def parse_seasons(seasons_id: typing.List[int]):
                     result = result.replace("-", "--")
 
                     # write
-                    coaches, lst = parse_game(season_id=season_id, game_id=link_id,
+                    coaches, lst = parse_game(season_id=season_id,
+                                              game_id=link_id,
                                               home_game=True if group_home == config.TEAM_NAME else False)
                     # write match final row
                     writer.writerow(
@@ -196,6 +212,7 @@ def parse_seasons(seasons_id: typing.List[int]):
 
 
 def write_rpe():
+    """Writes RPE data to 'RPE_data.csv'."""
     lst = list(config.PLAYERS.values())
     vals = list()
     for name in lst:
@@ -209,7 +226,7 @@ def write_rpe():
         writer = csv.writer(csv_file)
         writer.writerow(['date'] + vals)
 
-        # RPE OF 21_22
+        # RPE data for the 21_22 season
         df = pd.read_csv("RPE_MATCH_21_22.csv")
         dict_res = dict()
         dates = [d.split(' ')[0] for d in df['Timestamp'].values]
@@ -249,7 +266,7 @@ def write_rpe():
             dict_res[d] = cur_l.copy()
             writer.writerow([d] + cur_l.copy())
 
-        # RPE OF 22_23
+        # RPE data for the 22_23 season
         df = pd.read_csv("RPE_MATCH_22_23.csv")
         dict_res = dict()
         dates = [d.split(' ')[0] for d in df['Timestamp'].values]
@@ -276,7 +293,7 @@ def write_rpe():
                     [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date]), case=False)].fillna(0)], axis=0)
                 df1 = pd.concat(
                     [df1, df.loc[df['Timestamp'].str.contains(str(cnvr_dates[date])[0].replace('0', '') +
-                                                                str(cnvr_dates[date]) [1:3]+
+                                                              str(cnvr_dates[date])[1:3] +
                                                               str(cnvr_dates[date])[3].replace('0', '') +
                                                               str(cnvr_dates[date])[4:], case=False)].fillna(0)],
                     axis=0)
@@ -295,11 +312,8 @@ def write_rpe():
             writer.writerow([d] + cur_l.copy())
 
 
-# if __name__ == "__main__":
-#     # parse_seasons(seasons_id=[23, 24])
-#     write_rpe()
-
-url = f"https://www.football.org.il/team-details/team-games/?team_id=5981&season_id={24}"
-response = requests.get(url)
-soup = BeautifulSoup(response.content, "html.parser")
-print(soup)
+if __name__ == "__main__":
+    # Call the parse_seasons function for specific season IDs
+    parse_seasons(seasons_id=[23, 24])
+    # Call the write_rpe function to write RPE data to 'RPE_data.csv'
+    write_rpe()
